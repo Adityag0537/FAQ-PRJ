@@ -189,38 +189,7 @@ function FAQPage() {
 
       <Pagination page={page} pages={pages} onPageChange={setPage} />
 
-      <section className="home-recent-section">
-        <div className="home-recent-header">
-          <div>
-            <h2>Recent Community Questions</h2>
-            <p className="field-hint">
-              Latest discussions from the community — no sorting needed here.
-            </p>
-          </div>
-          <Link to="/questions" className="btn btn-secondary btn-sm">
-            View All →
-          </Link>
-        </div>
-
-        {recentLoading ? (
-          <LoadingState message="Loading recent questions..." />
-        ) : recentQuestions.length === 0 ? (
-          <EmptyState
-            title="No community questions yet"
-            description="Be the first to start a discussion."
-          />
-        ) : (
-          <div className="question-rows">
-            {recentQuestions.map((question) => (
-              <QuestionListItem
-                key={question._id}
-                question={question}
-                faqThreshold={faqThreshold}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      
     </div>
   );
 }
