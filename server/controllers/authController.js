@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { formatUserResponse } = require("../utils/userResponse");
 
 const generateToken = (userId) =>
   jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -48,11 +49,7 @@ const register = async (req, res) => {
       success: true,
       message: "Registration successful",
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-      },
+      user: formatUserResponse(user),
     });
   } catch (error) {
     res.status(500).json({
@@ -82,6 +79,13 @@ const login = async (req, res) => {
       });
     }
 
+    if (user.isSuspended) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been suspended",
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!isMatch) {
@@ -97,11 +101,7 @@ const login = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-      },
+      user: formatUserResponse(user),
     });
   } catch (error) {
     res.status(500).json({

@@ -1,6 +1,17 @@
 const Question = require("../models/Question");
 const Answer = require("../models/Answer");
-const { CATEGORIES, FAQ_UPVOTE_THRESHOLD } = require("../config/constants");
+const { CATEGORIES } = require("../config/constants");
+const { getFaqSettings } = require("../utils/settingsHelpers");
+const { isQuestionFaqEligible } = require("../utils/faqEligibility");
+const {
+  canEditQuestion,
+  canDeleteQuestion,
+} = require("../utils/permissions");
+const { processUploadedFiles } = require("../utils/attachmentHelpers");
+const {
+  handleAcceptedAnswerChange,
+  revokeAcceptedAnswerSp,
+} = require("../utils/spRewards");
 const {
   parsePagination,
   parseCategories,
@@ -87,7 +98,16 @@ const getQuestionById = async (req, res) => {
       });
     }
 
+    question.views = (question.views || 0) + 1;
+    await question.save();
+
+    const faqSettings = await getFaqSettings();
     const data = await enrichQuestion(question, req.user?._id);
+    data.isFaqEligible = isQuestionFaqEligible(question, {
+      minViews: faqSettings.faqMinViews,
+      minAgeDays: faqSettings.faqMinAgeDays,
+    });
+    data.faqSettings = faqSettings;
 
     res.status(200).json({
       success: true,
@@ -103,7 +123,12 @@ const getQuestionById = async (req, res) => {
 
 const createQuestion = async (req, res) => {
   try {
-    const { title, description, categories } = req.body;
+    const title = req.body.title;
+    const description = req.body.description;
+    const categories =
+      typeof req.body.categories === "string"
+        ? JSON.parse(req.body.categories)
+        : req.body.categories;
 
     if (!title || !description) {
       return res.status(400).json({
@@ -121,11 +146,23 @@ const createQuestion = async (req, res) => {
       });
     }
 
+    let attachments = [];
+
+    try {
+      attachments = await processUploadedFiles(req.files);
+    } catch (uploadError) {
+      return res.status(400).json({
+        success: false,
+        message: uploadError.message,
+      });
+    }
+
     const question = await Question.create({
       title,
       description,
       categories,
       author: req.user._id,
+      attachments,
     });
 
     const populated = await Question.findById(question._id).populate(
@@ -157,17 +194,19 @@ const updateQuestion = async (req, res) => {
       });
     }
 
-    if (
-      !question.author ||
-      question.author.toString() !== req.user._id.toString()
-    ) {
+    if (!canEditQuestion(req.user, question)) {
       return res.status(403).json({
         success: false,
         message: "You can only edit your own questions",
       });
     }
 
-    const { title, description, categories } = req.body;
+    const title = req.body.title;
+    const description = req.body.description;
+    const categories =
+      typeof req.body.categories === "string"
+        ? JSON.parse(req.body.categories)
+        : req.body.categories;
 
     if (title) {
       question.title = title;
@@ -188,6 +227,18 @@ const updateQuestion = async (req, res) => {
       }
 
       question.categories = categories;
+    }
+
+    if (req.files?.length) {
+      try {
+        const newAttachments = await processUploadedFiles(req.files);
+        question.attachments = [...(question.attachments || []), ...newAttachments];
+      } catch (uploadError) {
+        return res.status(400).json({
+          success: false,
+          message: uploadError.message,
+        });
+      }
     }
 
     await question.save();
@@ -220,14 +271,15 @@ const deleteQuestion = async (req, res) => {
       });
     }
 
-    if (
-      !question.author ||
-      question.author.toString() !== req.user._id.toString()
-    ) {
+    if (!canDeleteQuestion(req.user, question)) {
       return res.status(403).json({
         success: false,
         message: "You can only delete your own questions",
       });
+    }
+
+    if (question.acceptedAnswerSpAwardedTo) {
+      await revokeAcceptedAnswerSp(question);
     }
 
     await Answer.deleteMany({ questionId: question._id });
@@ -331,8 +383,15 @@ const acceptAnswer = async (req, res) => {
       });
     }
 
+    const previousAnswerId = question.acceptedAnswer?.toString() || null;
+
     question.acceptedAnswer = answerId;
     question.acceptedAnswerContent = answer.content;
+
+    if (previousAnswerId !== answerId.toString()) {
+      await handleAcceptedAnswerChange(question, previousAnswerId, answer);
+    }
+
     await question.save();
 
     const populated = await Question.findById(questionId)
@@ -387,6 +446,8 @@ const unacceptAnswer = async (req, res) => {
       });
     }
 
+    const previousAnswerId = question.acceptedAnswer?.toString() || null;
+    await handleAcceptedAnswerChange(question, previousAnswerId, null);
     question.acceptedAnswer = null;
     question.acceptedAnswerContent = "";
     await question.save();
@@ -455,5 +516,4 @@ module.exports = {
   acceptAnswer,
   unacceptAnswer,
   getSimilarQuestions,
-  FAQ_UPVOTE_THRESHOLD,
 };

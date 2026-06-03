@@ -1,4 +1,9 @@
-export function getQuestionStatus(question, faqThreshold = 5) {
+import { isFaqEligible } from "./faqStatus";
+
+export function getQuestionStatus(
+  question,
+  faqConfig = { faqMinViews: 100, faqMinAgeDays: 7 }
+) {
   const hasAccepted = Boolean(
     question.acceptedAnswer &&
       (typeof question.acceptedAnswer === "object"
@@ -6,7 +11,12 @@ export function getQuestionStatus(question, faqThreshold = 5) {
         : question.acceptedAnswer)
   );
 
-  if (hasAccepted && question.upvotes >= faqThreshold) {
+  const config =
+    typeof faqConfig === "number"
+      ? { faqMinViews: faqConfig, faqMinAgeDays: 7 }
+      : faqConfig;
+
+  if (hasAccepted && isFaqEligible(question, config)) {
     return "faq";
   }
 

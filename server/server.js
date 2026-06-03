@@ -4,7 +4,8 @@ const dotenv = require("dotenv");
 
 const connectDB = require("./config/db");
 const seedDatabase = require("./seed/seed");
-const { CATEGORIES, FAQ_UPVOTE_THRESHOLD } = require("./config/constants");
+const { CATEGORIES } = require("./config/constants");
+const { getFaqSettings } = require("./utils/settingsHelpers");
 
 dotenv.config();
 
@@ -27,6 +28,9 @@ const startServer = async () => {
   app.use("/api/questions", require("./routes/questionRoutes"));
   app.use("/api/faqs", require("./routes/faqRoutes"));
   app.use("/api", require("./routes/answerRoutes"));
+  app.use("/api", require("./routes/reportRoutes"));
+  app.use("/api/leaderboard", require("./routes/leaderboardRoutes"));
+  app.use("/api/admin", require("./routes/adminRoutes"));
 
   app.get("/api/categories", (req, res) => {
     res.status(200).json({
@@ -35,13 +39,23 @@ const startServer = async () => {
     });
   });
 
-  app.get("/api/config", (req, res) => {
-    res.status(200).json({
-      success: true,
-      data: {
-        faqUpvoteThreshold: FAQ_UPVOTE_THRESHOLD,
-      },
-    });
+  app.get("/api/config", async (req, res) => {
+    try {
+      const faqSettings = await getFaqSettings();
+
+      res.status(200).json({
+        success: true,
+        data: {
+          ...faqSettings,
+          faqUpvoteThreshold: faqSettings.faqMinViews,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
   });
 
   app.get("/", (req, res) => {

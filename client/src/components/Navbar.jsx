@@ -35,15 +35,28 @@ function Navbar() {
           <NavLink to="/questions" className="nav-link">
             Community
           </NavLink>
+          <NavLink to="/leaderboard" className="nav-link">
+            Leaderboard
+          </NavLink>
 
           {user ? (
             <>
               <NavLink to="/ask" className="nav-link nav-link-cta">
                 Ask Question
               </NavLink>
+              {user.role === "ADMIN" && (
+                <NavLink to="/admin/moderation" className="nav-link">
+                  Admin
+                </NavLink>
+              )}
               <Link to="/my-activity" className="user-chip" title="My Activity">
                 <span className="user-avatar">{initials}</span>
-                <span className="user-name">{user.name}</span>
+                <span className="user-name">
+                  {user.name}
+                  {user.badge && (
+                    <span className="user-badge">{user.badge}</span>
+                  )}
+                </span>
               </Link>
               <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
                 Logout

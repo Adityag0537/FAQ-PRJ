@@ -22,12 +22,20 @@ function QuestionsPage() {
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [faqThreshold, setFaqThreshold] = useState(5);
+  const [faqConfig, setFaqConfig] = useState({
+    faqMinViews: 100,
+    faqMinAgeDays: 7,
+  });
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     API.get("/config")
-      .then((res) => setFaqThreshold(res.data.data.faqUpvoteThreshold))
+      .then((res) =>
+        setFaqConfig({
+          faqMinViews: res.data.data.faqMinViews ?? 100,
+          faqMinAgeDays: res.data.data.faqMinAgeDays ?? 7,
+        })
+      )
       .catch(() => {});
   }, []);
 
@@ -154,7 +162,7 @@ function QuestionsPage() {
                 <QuestionListItem
                   key={question._id}
                   question={question}
-                  faqThreshold={faqThreshold}
+                  faqConfig={faqConfig}
                 />
               ))}
             </div>

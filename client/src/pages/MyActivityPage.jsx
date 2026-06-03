@@ -15,11 +15,19 @@ function MyActivityPage() {
   const [myQuestions, setMyQuestions] = useState([]);
   const [myAnswers, setMyAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [faqThreshold, setFaqThreshold] = useState(5);
+  const [faqConfig, setFaqConfig] = useState({
+    faqMinViews: 100,
+    faqMinAgeDays: 7,
+  });
 
   useEffect(() => {
     API.get("/config")
-      .then((res) => setFaqThreshold(res.data.data.faqUpvoteThreshold))
+      .then((res) =>
+        setFaqConfig({
+          faqMinViews: res.data.data.faqMinViews ?? 100,
+          faqMinAgeDays: res.data.data.faqMinAgeDays ?? 7,
+        })
+      )
       .catch(() => {});
   }, []);
 
@@ -106,7 +114,7 @@ function MyActivityPage() {
         ) : (
           <div className="activity-list">
             {myQuestions.map((question) => {
-              const status = getQuestionStatus(question, faqThreshold);
+              const status = getQuestionStatus(question, faqConfig);
 
               return (
                 <article key={question._id} className="card activity-card">

@@ -5,7 +5,6 @@ import { buildQueryParams } from "../constants/categories";
 import PageHeader from "../components/PageHeader";
 import SearchBar from "../components/SearchBar";
 import CategoryFilter from "../components/CategoryFilter";
-import QuestionListItem from "../components/QuestionListItem";
 import Pagination from "../components/Pagination";
 import LoadingState from "../components/LoadingState";
 import EmptyState from "../components/EmptyState";
@@ -13,7 +12,6 @@ import { formatRelativeTime } from "../utils/formatRelativeTime";
 
 function FAQPage() {
   const [faqs, setFaqs] = useState([]);
-  const [recentQuestions, setRecentQuestions] = useState([]);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -21,65 +19,58 @@ function FAQPage() {
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [recentLoading, setRecentLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState(null);
-  const [faqThreshold, setFaqThreshold] = useState(5);
+  const [faqConfig, setFaqConfig] = useState({
+    faqMinViews: 100,
+    faqMinAgeDays: 7,
+  });
 
   useEffect(() => {
     API.get("/config")
-      .then((res) => setFaqThreshold(res.data.data.faqUpvoteThreshold))
+      .then((res) => {
+        setFaqConfig({
+          faqMinViews: res.data.data.faqMinViews ?? 100,
+          faqMinAgeDays: res.data.data.faqMinAgeDays ?? 7,
+        });
+      })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const fetchFaqs = async () => {
+      setLoading(true);
+
+      try {
+        const query = buildQueryParams({
+          search,
+          categories: selectedCategories,
+          page,
+          limit: 8,
+        });
+
+        const res = await API.get(`/faqs?${query}`);
+
+        if (!cancelled) {
+          setFaqs(res.data.data);
+          setPages(res.data.pages);
+          setTotal(res.data.total);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
     fetchFaqs();
+
+    return () => {
+      cancelled = true;
+    };
   }, [search, selectedCategories, page]);
-
-  useEffect(() => {
-    fetchRecentQuestions();
-  }, []);
-
-  const fetchFaqs = async () => {
-    setLoading(true);
-
-    try {
-      const query = buildQueryParams({
-        search,
-        categories: selectedCategories,
-        page,
-        limit: 8,
-      });
-
-      const res = await API.get(`/faqs?${query}`);
-
-      setFaqs(res.data.data);
-      setPages(res.data.pages);
-      setTotal(res.data.total);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRecentQuestions = async () => {
-    setRecentLoading(true);
-
-    try {
-      const query = buildQueryParams({
-        page: 1,
-        limit: 5,
-        sort: "newest",
-      });
-
-      const res = await API.get(`/questions?${query}`);
-      setRecentQuestions(res.data.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setRecentLoading(false);
-    }
-  };
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -144,7 +135,14 @@ function FAQPage() {
               <p className="card-body">{faq.description}</p>
 
               <div className="faq-card-meta">
+                <span className="stat-pill">👁 {faq.views ?? 0} Views</span>
                 <span className="stat-pill">👍 {faq.upvotes} Upvotes</span>
+                {(faq.attachmentCount ?? 0) > 0 && (
+                  <span className="stat-pill">
+                    📷 {faq.attachmentCount} Attachment
+                    {faq.attachmentCount === 1 ? "" : "s"}
+                  </span>
+                )}
               </div>
 
               {faq.categories?.length > 0 && (
@@ -158,38 +156,19 @@ function FAQPage() {
               )}
 
               <div className="card-actions">
-                <button
-                  type="button"
+                <Link
+                  to={`/questions/${faq._id}`}
                   className="btn btn-secondary"
-                  onClick={() =>
-                    setExpandedId(expandedId === faq._id ? null : faq._id)
-                  }
-                  aria-expanded={expandedId === faq._id}
                 >
-                  {expandedId === faq._id ? "Hide Answer" : "View Accepted Answer"}
-                </button>
+                  View Details
+                </Link>
               </div>
-
-              {expandedId === faq._id && faq.acceptedAnswer && (
-                <div className="answer accepted-answer">
-                  <div className="answer-header">
-                    <span className="answer-badge">Accepted</span>
-                    <strong>{faq.acceptedAnswer.author?.name || "Community"}</strong>
-                  </div>
-                  <p>{faq.acceptedAnswer.content}</p>
-                  <span className="answer-time">
-                    Answered {formatRelativeTime(faq.acceptedAnswer.createdAt)}
-                  </span>
-                </div>
-              )}
             </article>
           ))}
         </div>
       )}
 
       <Pagination page={page} pages={pages} onPageChange={setPage} />
-
-      
     </div>
   );
 }

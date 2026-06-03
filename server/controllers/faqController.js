@@ -1,6 +1,7 @@
-const Answer = require("../models/Answer");
 const Question = require("../models/Question");
-const { FAQ_UPVOTE_THRESHOLD } = require("../config/constants");
+const { getFaqEligibilityFilter } = require("../utils/faqEligibility");
+const { getFaqSettings } = require("../utils/settingsHelpers");
+const { stripAttachmentsForList } = require("../utils/attachmentHelpers");
 const {
   parsePagination,
   parseCategories,
@@ -14,18 +15,22 @@ const getFaqs = async (req, res) => {
     const { page, limit, skip } = parsePagination(req.query);
     const categories = parseCategories(req.query);
     const search = req.query.search || "";
+    const { faqMinViews, faqMinAgeDays } = await getFaqSettings();
 
     const filter = {
-      acceptedAnswer: { $ne: null },
-      upvotes: { $gte: FAQ_UPVOTE_THRESHOLD },
+      ...getFaqEligibilityFilter({ minViews: faqMinViews, minAgeDays: faqMinAgeDays }),
       ...buildCategoryFilter(categories),
       ...buildTextSearchFilter(search),
     };
 
     let query = Question.find(filter)
       .populate("author", "name email")
-      .populate("acceptedAnswer")
-      .sort(search ? { score: { $meta: "textScore" } } : { upvotes: -1, createdAt: -1 });
+      .populate({
+        path: "acceptedAnswer",
+        select: "content author createdAt upvotes",
+        populate: { path: "author", select: "name email" },
+      })
+      .sort(search ? { score: { $meta: "textScore" } } : { views: -1, upvotes: -1, createdAt: -1 });
 
     if (search) {
       query = query.select({ score: { $meta: "textScore" } });
@@ -36,7 +41,9 @@ const getFaqs = async (req, res) => {
       Question.countDocuments(filter),
     ]);
 
-    res.status(200).json(paginatedResponse(faqs, total, page, limit));
+    const data = faqs.map((faq) => stripAttachmentsForList(faq));
+
+    res.status(200).json(paginatedResponse(data, total, page, limit));
   } catch (error) {
     res.status(500).json({
       success: false,
