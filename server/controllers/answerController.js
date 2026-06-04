@@ -4,6 +4,11 @@ const {
   attachVoteStatus,
   attachVoteStatusList,
 } = require("../utils/voteHelpers");
+const {
+  canEditAnswer,
+  canDeleteAnswer,
+} = require("../utils/permissions");
+const { handleAnswerUpvoteSp } = require("../utils/spRewards");
 
 const addAnswer = async (req, res) => {
   try {
@@ -95,7 +100,7 @@ const updateAnswer = async (req, res) => {
       });
     }
 
-    if (answer.author.toString() !== req.user._id.toString()) {
+    if (!canEditAnswer(req.user, answer)) {
       return res.status(403).json({
         success: false,
         message: "You can only edit your own answers",
@@ -154,7 +159,7 @@ const deleteAnswer = async (req, res) => {
       });
     }
 
-    if (answer.author.toString() !== req.user._id.toString()) {
+    if (!canDeleteAnswer(req.user, answer)) {
       return res.status(403).json({
         success: false,
         message: "You can only delete your own answers",
@@ -168,8 +173,11 @@ const deleteAnswer = async (req, res) => {
       question.acceptedAnswer &&
       question.acceptedAnswer.toString() === answer._id.toString()
     ) {
+      const { revokeAcceptedAnswerSp } = require("../utils/spRewards");
+      await revokeAcceptedAnswerSp(question);
       question.acceptedAnswer = null;
       question.acceptedAnswerContent = "";
+      question.acceptedAnswerSpAwardedTo = null;
       await question.save();
     }
 
@@ -211,10 +219,12 @@ const upvoteAnswer = async (req, res) => {
       );
       answer.upvotes = Math.max(0, answer.upvotes - 1);
       message = "Upvote removed";
+      await handleAnswerUpvoteSp(answer, req.user._id, false);
     } else {
       answer.upvotedBy.push(req.user._id);
       answer.upvotes += 1;
       message = "Answer upvoted";
+      await handleAnswerUpvoteSp(answer, req.user._id, true);
     }
 
     await answer.save();

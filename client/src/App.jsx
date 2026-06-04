@@ -9,6 +9,9 @@ import QuestionDetailPage from "./pages/QuestionDetailPage";
 import MyActivityPage from "./pages/MyActivityPage";
 import AskQuestionPage from "./pages/AskQuestionPage";
 import LoginPage from "./pages/LoginPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
+import AdminModerationPage from "./pages/AdminModerationPage";
+import AdminRoute from "./components/AdminRoute";
 import "./app.css";
 
 function App() {
@@ -40,6 +43,15 @@ function App() {
                 }
               />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route
+                path="/admin/moderation"
+                element={
+                  <AdminRoute>
+                    <AdminModerationPage />
+                  </AdminRoute>
+                }
+              />
             </Routes>
           </main>
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const auth = require("../middleware/auth");
 const optionalAuth = require("../middleware/optionalAuth");
+const upload = require("../middleware/upload");
 const {
   getQuestions,
   getQuestionById,
@@ -18,8 +19,8 @@ const router = express.Router();
 router.get("/similar", getSimilarQuestions);
 router.get("/", optionalAuth, getQuestions);
 router.get("/:id", optionalAuth, getQuestionById);
-router.post("/", auth, createQuestion);
-router.patch("/:id", auth, updateQuestion);
+router.post("/", auth, upload.array("attachments", 5), createQuestion);
+router.patch("/:id", auth, upload.array("attachments", 5), updateQuestion);
 router.delete("/:id", auth, deleteQuestion);
 router.patch("/:id/upvote", auth, upvoteQuestion);
 router.patch("/:questionId/accept/:answerId", auth, acceptAnswer);

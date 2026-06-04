@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { CATEGORIES } from "../constants/categories";
 import PageHeader from "../components/PageHeader";
+import AttachmentUpload from "../components/AttachmentUpload";
+import { buildQuestionFormData } from "../utils/formData";
 
 function AskQuestionPage() {
   const [title, setTitle] = useState("");
@@ -11,6 +13,7 @@ function AskQuestionPage() {
   const [similarQuestions, setSimilarQuestions] = useState([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [attachmentFiles, setAttachmentFiles] = useState([]);
 
   const navigate = useNavigate();
 
@@ -56,10 +59,15 @@ function AskQuestionPage() {
     setSubmitting(true);
 
     try {
-      await API.post("/questions", {
+      const formData = buildQuestionFormData({
         title,
         description,
         categories,
+        files: attachmentFiles,
+      });
+
+      await API.post("/questions", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       navigate("/questions");
@@ -112,6 +120,11 @@ function AskQuestionPage() {
               required
             />
           </div>
+
+          <AttachmentUpload
+            files={attachmentFiles}
+            onChange={setAttachmentFiles}
+          />
 
           <div className="field">
             <label className="field-label">Categories</label>

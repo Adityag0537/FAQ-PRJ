@@ -1,5 +1,16 @@
 const mongoose = require("mongoose");
 
+const attachmentSchema = new mongoose.Schema(
+  {
+    publicId: { type: String, required: true },
+    url: { type: String, required: true },
+    fileName: { type: String, required: true },
+    fileType: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
 const questionSchema = new mongoose.Schema(
   {
     title: {
@@ -43,6 +54,19 @@ const questionSchema = new mongoose.Schema(
     isSeed: {
       type: Boolean,
       default: false,
+    },
+    views: {
+      type: Number,
+      default: 0,
+    },
+    attachments: {
+      type: [attachmentSchema],
+      default: [],
+    },
+    acceptedAnswerSpAwardedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   {

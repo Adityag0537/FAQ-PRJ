@@ -23,6 +23,13 @@ const auth = async (req, res, next) => {
       });
     }
 
+    if (user.isSuspended) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been suspended",
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {

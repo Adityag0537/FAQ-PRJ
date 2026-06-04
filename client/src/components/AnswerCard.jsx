@@ -26,8 +26,13 @@ function AnswerCard({
   onUpvote,
   onSaveEdit,
   onDelete,
+  onReport,
   renderAcceptAction,
 }) {
+  const canReport =
+    user &&
+    answer.author?._id !== user._id &&
+    answer.author !== user._id;
   if (editAnswerId === answer._id) {
     return (
       <article className="answer-thread answer-thread-editing">
@@ -115,6 +120,15 @@ function AnswerCard({
                 Delete
               </button>
             </>
+          )}
+          {canReport && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => onReport?.(answer._id)}
+            >
+              Report
+            </button>
           )}
         </footer>
       </div>

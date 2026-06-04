@@ -6,8 +6,8 @@ import {
   getAcceptedAnswerPreview,
 } from "../utils/questionStatus";
 
-function QuestionListItem({ question, faqThreshold }) {
-  const status = getQuestionStatus(question, faqThreshold);
+function QuestionListItem({ question, faqConfig }) {
+  const status = getQuestionStatus(question, faqConfig);
   const preview = getAcceptedAnswerPreview(question);
   const answerCount = question.answerCount ?? 0;
   const answerLabel = answerCount === 1 ? "Answer" : "Answers";

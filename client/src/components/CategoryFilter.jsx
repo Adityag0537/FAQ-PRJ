@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CATEGORIES } from "../constants/categories";
 
 function CategoryFilter({ selected, onChange }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const toggleCategory = (category) => {
     if (selected.includes(category)) {

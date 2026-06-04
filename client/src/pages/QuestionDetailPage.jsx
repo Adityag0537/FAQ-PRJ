@@ -7,6 +7,10 @@ import VoteControl from "../components/VoteControl";
 import AnswerCard from "../components/AnswerCard";
 import LoadingState from "../components/LoadingState";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
+import AttachmentGallery from "../components/AttachmentGallery";
+import AttachmentUpload from "../components/AttachmentUpload";
+import ReportAnswerModal from "../components/ReportAnswerModal";
+import { buildQuestionFormData } from "../utils/formData";
 import {
   getQuestionStatus,
   getAcceptedAnswerId,
@@ -22,7 +26,12 @@ function QuestionDetailPage() {
   const [question, setQuestion] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [faqThreshold, setFaqThreshold] = useState(5);
+  const [faqConfig, setFaqConfig] = useState({
+    faqMinViews: 100,
+    faqMinAgeDays: 7,
+  });
+  const [editFiles, setEditFiles] = useState([]);
+  const [reportAnswerId, setReportAnswerId] = useState(null);
   const [answerDraft, setAnswerDraft] = useState("");
   const [editQuestion, setEditQuestion] = useState(false);
   const [editAnswerId, setEditAnswerId] = useState(null);
@@ -30,7 +39,12 @@ function QuestionDetailPage() {
 
   useEffect(() => {
     API.get("/config")
-      .then((res) => setFaqThreshold(res.data.data.faqUpvoteThreshold))
+      .then((res) =>
+        setFaqConfig({
+          faqMinViews: res.data.data.faqMinViews ?? 100,
+          faqMinAgeDays: res.data.data.faqMinAgeDays ?? 7,
+        })
+      )
       .catch(() => {});
   }, []);
 
@@ -136,9 +150,19 @@ function QuestionDetailPage() {
   };
 
   const saveQuestionEdit = async () => {
-    await API.patch(`/questions/${id}`, editForm);
+    const formData = buildQuestionFormData({
+      title: editForm.title ?? question.title,
+      description: editForm.description ?? question.description,
+      categories: question.categories,
+      files: editFiles,
+    });
+
+    await API.patch(`/questions/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     setEditQuestion(false);
     setEditForm({});
+    setEditFiles([]);
     loadQuestion();
   };
 
@@ -226,7 +250,7 @@ function QuestionDetailPage() {
     );
   }
 
-  const status = getQuestionStatus(question, faqThreshold);
+  const status = getQuestionStatus(question, faqConfig);
   const acceptedId = getAcceptedAnswerId(question);
   const otherAnswers = answers.filter(
     (a) => a._id.toString() !== acceptedId
@@ -260,6 +284,7 @@ function QuestionDetailPage() {
               }
               rows={5}
             />
+            <AttachmentUpload files={editFiles} onChange={setEditFiles} />
             <div className="action-row">
               <button
                 type="button"
@@ -301,6 +326,8 @@ function QuestionDetailPage() {
               <p className="card-body question-detail-desc">
                 {question.description}
               </p>
+
+              <AttachmentGallery attachments={question.attachments} />
 
               <p className="meta-text">
                 Asked by{" "}
@@ -385,6 +412,7 @@ function QuestionDetailPage() {
               onUpvote={toggleAnswerUpvote}
               onSaveEdit={saveAnswerEdit}
               onDelete={deleteAnswer}
+              onReport={setReportAnswerId}
               renderAcceptAction={renderAcceptAction}
             />
           </div>
@@ -409,11 +437,19 @@ function QuestionDetailPage() {
                   onUpvote={toggleAnswerUpvote}
                   onSaveEdit={saveAnswerEdit}
                   onDelete={deleteAnswer}
+                  onReport={setReportAnswerId}
                   renderAcceptAction={renderAcceptAction}
                 />
               ))}
             </div>
           </div>
+        )}
+
+        {reportAnswerId && (
+          <ReportAnswerModal
+            answerId={reportAnswerId}
+            onClose={() => setReportAnswerId(null)}
+          />
         )}
 
         {answers.length === 0 && (

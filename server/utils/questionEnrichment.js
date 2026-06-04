@@ -25,6 +25,7 @@ const enrichQuestions = async (questions, userId) => {
   return withVotes.map((question) => ({
     ...question,
     answerCount: countMap[question._id.toString()] || 0,
+    attachmentCount: question.attachments?.length || 0,
   }));
 };
 
@@ -35,6 +36,7 @@ const enrichQuestion = async (question, userId) => {
   return {
     ...enriched,
     answerCount: countMap[question._id.toString()] || 0,
+    attachmentCount: question.attachments?.length || 0,
   };
 };
 
