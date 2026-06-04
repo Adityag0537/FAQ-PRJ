@@ -9,6 +9,10 @@ const {
   canDeleteAnswer,
 } = require("../utils/permissions");
 const { handleAnswerUpvoteSp } = require("../utils/spRewards");
+const {
+  buildVisibleQuestionFilter,
+  buildVisibleAnswerFilter,
+} = require("../utils/moderationVisibility");
 
 const addAnswer = async (req, res) => {
   try {
@@ -22,7 +26,9 @@ const addAnswer = async (req, res) => {
       });
     }
 
-    const question = await Question.findById(questionId);
+    const question = await Question.findOne(
+      await buildVisibleQuestionFilter({ _id: questionId })
+    );
 
     if (!question) {
       return res.status(404).json({
@@ -59,11 +65,23 @@ const getAnswersByQuestion = async (req, res) => {
   try {
     const { questionId } = req.params;
 
-    const answers = await Answer.find({ questionId })
+    const answers = await Answer.find(
+      await buildVisibleAnswerFilter({ questionId })
+    )
       .populate("author", "name email")
       .sort({ upvotes: -1, createdAt: -1 });
 
-    const question = await Question.findById(questionId).select("acceptedAnswer");
+    const question = await Question.findOne(
+      await buildVisibleQuestionFilter({ _id: questionId })
+    ).select("acceptedAnswer");
+
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: "Question not found",
+      });
+    }
+
     const acceptedId = question?.acceptedAnswer?.toString();
 
     const sorted = [...answers].sort((a, b) => {
@@ -91,7 +109,9 @@ const getAnswersByQuestion = async (req, res) => {
 
 const updateAnswer = async (req, res) => {
   try {
-    const answer = await Answer.findById(req.params.id);
+    const answer = await Answer.findOne(await buildVisibleAnswerFilter({
+      _id: req.params.id,
+    }));
 
     if (!answer) {
       return res.status(404).json({
@@ -130,10 +150,9 @@ const updateAnswer = async (req, res) => {
       await question.save();
     }
 
-    const populated = await Answer.findById(answer._id).populate(
-      "author",
-      "name email"
-    );
+    const populated = await Answer.findOne(await buildVisibleAnswerFilter({
+      _id: answer._id,
+    })).populate("author", "name email");
 
     res.status(200).json({
       success: true,
@@ -150,7 +169,9 @@ const updateAnswer = async (req, res) => {
 
 const deleteAnswer = async (req, res) => {
   try {
-    const answer = await Answer.findById(req.params.id);
+    const answer = await Answer.findOne(await buildVisibleAnswerFilter({
+      _id: req.params.id,
+    }));
 
     if (!answer) {
       return res.status(404).json({
@@ -197,7 +218,9 @@ const deleteAnswer = async (req, res) => {
 
 const upvoteAnswer = async (req, res) => {
   try {
-    const answer = await Answer.findById(req.params.id);
+    const answer = await Answer.findOne(await buildVisibleAnswerFilter({
+      _id: req.params.id,
+    }));
 
     if (!answer) {
       return res.status(404).json({
@@ -229,10 +252,9 @@ const upvoteAnswer = async (req, res) => {
 
     await answer.save();
 
-    const populated = await Answer.findById(answer._id).populate(
-      "author",
-      "name email"
-    );
+    const populated = await Answer.findOne(await buildVisibleAnswerFilter({
+      _id: answer._id,
+    })).populate("author", "name email");
 
     res.status(200).json({
       success: true,

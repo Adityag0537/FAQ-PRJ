@@ -1920,6 +1920,55 @@ textarea {
   height: 48px;
 }
 
+.admin-users-panel {
+  margin-bottom: 24px;
+  border-radius: 16px;
+}
+
+.admin-users-header,
+.admin-user-search,
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-users-header {
+  margin-bottom: 16px;
+}
+
+.admin-users-header h3 {
+  margin-bottom: 0;
+}
+
+.admin-user-search {
+  justify-content: flex-start;
+  margin-bottom: 16px;
+}
+
+.admin-user-search input {
+  min-width: 280px;
+  max-width: 420px;
+}
+
+.admin-user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-user-row {
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-muted);
+}
+
+.admin-user-row p {
+  margin: 4px 0 0;
+}
+
 .admin-reports-list {
   display: flex;
   flex-direction: column;
@@ -2010,6 +2059,19 @@ textarea {
   }
 
   .action-row .btn {
+    width: 100%;
+  }
+
+  .admin-users-header,
+  .admin-user-search,
+  .admin-user-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-user-search input {
+    min-width: 0;
+    max-width: none;
     width: 100%;
   }
 

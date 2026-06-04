@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const seedDatabase = require("./seed/seed");
 const { CATEGORIES } = require("./config/constants");
+const { ADMIN_EMAIL, ADMIN_PASSWORD } = require("./config/adminCredentials");
 const { getFaqSettings } = require("./utils/settingsHelpers");
 
 dotenv.config();
@@ -69,6 +70,8 @@ const startServer = async () => {
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Admin email: ${ADMIN_EMAIL}`);
+    console.log(`Admin password: ${ADMIN_PASSWORD}`);
   });
 };
 

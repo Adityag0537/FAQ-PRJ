@@ -12,7 +12,14 @@ function AdminModerationPage() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [reportType, setReportType] = useState("answers");
   const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [showSuspendedUsers, setShowSuspendedUsers] = useState(false);
+  const [suspendedSearch, setSuspendedSearch] = useState("");
+  const [suspendedUsers, setSuspendedUsers] = useState([]);
+  const [suspendedUsersLoading, setSuspendedUsersLoading] = useState(false);
+  const reportEndpoint =
+    reportType === "questions" ? "/admin/question-reports" : "/admin/reports";
 
   useEffect(() => {
     let cancelled = false;
@@ -22,7 +29,7 @@ function AdminModerationPage() {
 
       try {
         const [reportsRes, analyticsRes, configRes] = await Promise.all([
-          API.get(`/admin/reports?status=${statusFilter}&page=${page}&limit=8`),
+          API.get(`${reportEndpoint}?status=${statusFilter}&page=${page}&limit=8`),
           API.get("/admin/analytics"),
           API.get("/admin/faq-config"),
         ]);
@@ -47,14 +54,14 @@ function AdminModerationPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, statusFilter]);
+  }, [page, statusFilter, reportEndpoint]);
 
   const reloadDashboard = async () => {
     setLoading(true);
 
     try {
       const [reportsRes, analyticsRes, configRes] = await Promise.all([
-        API.get(`/admin/reports?status=${statusFilter}&page=${page}&limit=8`),
+        API.get(`${reportEndpoint}?status=${statusFilter}&page=${page}&limit=8`),
         API.get("/admin/analytics"),
         API.get("/admin/faq-config"),
       ]);
@@ -70,21 +77,79 @@ function AdminModerationPage() {
     }
   };
 
+  const loadSuspendedUsers = async (search = suspendedSearch) => {
+    setSuspendedUsersLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        isSuspended: "true",
+        page: "1",
+        limit: "25",
+      });
+
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
+
+      const res = await API.get(`/admin/users?${params.toString()}`);
+      setSuspendedUsers(res.data.data);
+    } catch (error) {
+      console.error("[v0] loadSuspendedUsers error:", error);
+      alert(error.response?.data?.message || "Failed to load suspended users");
+    } finally {
+      setSuspendedUsersLoading(false);
+    }
+  };
+
+  const toggleSuspendedUsers = () => {
+    const next = !showSuspendedUsers;
+    setShowSuspendedUsers(next);
+
+    if (next) {
+      loadSuspendedUsers();
+    }
+  };
+
+  const searchSuspendedUsers = (event) => {
+    event.preventDefault();
+    loadSuspendedUsers();
+  };
+
   const updateReport = async (reportId, status) => {
-  const reason = window.prompt("Moderation reason (optional):");
+    const reason = window.prompt("Moderation reason (optional):");
 
-  if (reason === null) {
-    return;
-  }
+    if (reason === null) {
+      return;
+    }
 
-  try {
-    await API.patch(`/admin/reports/${reportId}`, { status, reason });
-    reloadDashboard();
-  } catch (error) {
-    console.error("[v0] updateReport error:", error);
-    alert(error.response?.data?.message || "Failed to update report");
-  }
-};
+    try {
+      await API.patch(`${reportEndpoint}/${reportId}`, { status, reason });
+      reloadDashboard();
+    } catch (error) {
+      console.error("[v0] updateReport error:", error);
+      alert(error.response?.data?.message || "Failed to update report");
+    }
+  };
+
+  const removeQuestion = async (questionId) => {
+    if (!window.confirm("Delete this question?")) {
+      return;
+    }
+
+    const reason = window.prompt("Reason for deletion:");
+
+    if (reason === null) {
+      return;
+    }
+
+    try {
+      await API.delete(`/admin/questions/${questionId}`, { data: { reason } });
+      reloadDashboard();
+    } catch (error) {
+      console.error("[v0] removeQuestion error:", error);
+      alert(error.response?.data?.message || "Failed to delete question");
+    }
+  };
 
   const removeAnswer = async (answerId) => {
     if (!window.confirm("Remove this answer?")) {
@@ -93,9 +158,9 @@ function AdminModerationPage() {
 
     const reason = window.prompt("Reason for removal:");
 
-if (reason === null) {
-  return;
-}
+    if (reason === null) {
+      return;
+    }
     try {
       await API.delete(`/admin/answers/${answerId}`, { data: { reason } });
       reloadDashboard();
@@ -108,15 +173,35 @@ if (reason === null) {
   const suspendUser = async (userId) => {
     const reason = window.prompt("Suspension reason:");
 
-if (reason === null) {
-  return;
-}
+    if (reason === null) {
+      return;
+    }
     try {
       await API.patch(`/admin/users/${userId}/suspend`, { reason });
       reloadDashboard();
     } catch (error) {
       console.error("[v0] suspendUser error:", error);
       alert(error.response?.data?.message || "Failed to suspend user");
+    }
+  };
+
+  const unsuspendUser = async (userId) => {
+    const reason = window.prompt("Unsuspension reason (optional):");
+
+    if (reason === null) {
+      return;
+    }
+
+    try {
+      await API.patch(`/admin/users/${userId}/reactivate`, { reason });
+      await reloadDashboard();
+
+      if (showSuspendedUsers) {
+        await loadSuspendedUsers();
+      }
+    } catch (error) {
+      console.error("[v0] unsuspendUser error:", error);
+      alert(error.response?.data?.message || "Failed to unsuspend user");
     }
   };
 
@@ -190,7 +275,84 @@ if (reason === null) {
         </div>
       </section>
 
+      <section className="card admin-users-panel">
+        <div className="admin-users-header">
+          <h3>Suspended Users</h3>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={toggleSuspendedUsers}
+          >
+            {showSuspendedUsers ? "Hide Suspended Users" : "Show Suspended Users"}
+          </button>
+        </div>
+
+        {showSuspendedUsers && (
+          <>
+            <form className="admin-user-search" onSubmit={searchSuspendedUsers}>
+              <input
+                type="search"
+                placeholder="Search by name or email"
+                value={suspendedSearch}
+                onChange={(event) => setSuspendedSearch(event.target.value)}
+              />
+              <button type="submit" className="btn btn-primary btn-sm">
+                Search
+              </button>
+              {suspendedSearch && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setSuspendedSearch("");
+                    loadSuspendedUsers("");
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </form>
+
+            {suspendedUsersLoading ? (
+              <LoadingState message="Loading suspended users..." />
+            ) : suspendedUsers.length === 0 ? (
+              <div className="empty-state-card">
+                <h3>No suspended users found</h3>
+              </div>
+            ) : (
+              <div className="admin-user-list">
+                {suspendedUsers.map((user) => (
+                  <div key={user._id} className="admin-user-row">
+                    <div>
+                      <strong>{user.name}</strong>
+                      <p className="meta-text">{user.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => unsuspendUser(user._id)}
+                    >
+                      Unsuspend
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
       <div className="toolbar">
+        <select
+          value={reportType}
+          onChange={(e) => {
+            setPage(1);
+            setReportType(e.target.value);
+          }}
+        >
+          <option value="answers">Answer Reports</option>
+          <option value="questions">Question Reports</option>
+        </select>
         <select
           value={statusFilter}
           onChange={(e) => {
@@ -214,7 +376,13 @@ if (reason === null) {
         </div>
       ) : (
         <div className="admin-reports-list">
-          {reports.map((item) => (
+          {reports.map((item) => {
+            const reportedAuthor =
+              reportType === "questions"
+                ? item.question?.author
+                : item.answer?.author;
+
+            return (
             <article key={item._id} className="card admin-report-card">
               <div className="card-top">
                 <span className="badge">{item.status}</span>
@@ -232,23 +400,59 @@ if (reason === null) {
 
               <div className="admin-report-context">
                 <div>
-                  <h4>Reported Answer</h4>
-                  {item.answer ? (
-  <>
-    <p>{item.answer.content}</p>
-    <p className="meta-text">
-      Author: {item.answer.author?.name || "Unknown"}
-    </p>
-  </>
-) : (
-  <div className="info-banner">
-    🚫 This answer was removed by a moderator.
-  </div>
-)}
+                  <h4>
+                    {reportType === "questions"
+                      ? "Reported Question"
+                      : "Reported Answer"}
+                  </h4>
+                  {reportType === "questions" && item.question ? (
+                    <>
+                      <p>
+                        <strong>{item.question.title}</strong>
+                      </p>
+                      <p>{item.question.description}</p>
+                      <p className="meta-text">
+                        Author: {item.question.author?.name || "Unknown"}
+                      </p>
+                    </>
+                  ) : reportType === "questions" ? (
+                    <div className="info-banner">
+                      This question is no longer available.
+                    </div>
+                  ) : item.answer ? (
+                    <>
+                      <p>{item.answer.content}</p>
+                      <p className="meta-text">
+                        Author: {item.answer.author?.name || "Unknown"}
+                      </p>
+                      {item.answer.isRemoved && (
+                        <div className="info-banner">
+                          <strong>Removed answer</strong>
+                          {item.answer.removedReason && (
+                            <p>Reason: {item.answer.removedReason}</p>
+                          )}
+                          {item.answer.removedAt && (
+                            <p>
+                              Removed: {formatRelativeTime(item.answer.removedAt)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="info-banner">
+                      This answer is no longer available.
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h4>Question</h4>
-                  <p>{item.question?.title || "Question no longer available"}</p>
+                  <p>
+                    {item.question?.title ||
+                      (reportType === "questions"
+                        ? "Reported question no longer available"
+                        : "Question no longer available")}
+                  </p>
                   <p className="meta-text">
                     Reporter: {item.reporter?.name || "Unknown"}
                   </p>
@@ -256,57 +460,92 @@ if (reason === null) {
               </div>
 
               {item.status === "PENDING" ? (
-  <div className="action-row">
-    <button
-      type="button"
-      className="btn btn-secondary btn-sm"
-      onClick={() => updateReport(item._id, "DISMISSED")}
-    >
-      Dismiss
-    </button>
+                <div className="action-row">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => updateReport(item._id, "DISMISSED")}
+                  >
+                    Dismiss
+                  </button>
 
-    <button
-      type="button"
-      className="btn btn-secondary btn-sm"
-      onClick={() => updateReport(item._id, "REVIEWED")}
-    >
-      Mark Reviewed
-    </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => updateReport(item._id, "REVIEWED")}
+                  >
+                    Mark Reviewed
+                  </button>
 
-    {item.answer?._id && (
-      <button
-        type="button"
-        className="btn btn-danger btn-sm"
-        onClick={() => removeAnswer(item.answer._id)}
-      >
-        Remove Answer
-      </button>
-    )}
+                  {reportType === "questions" && item.question?._id && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() => removeQuestion(item.question._id)}
+                    >
+                      Delete Question
+                    </button>
+                  )}
 
-    {item.answer?.author?._id && (
-      <button
-        type="button"
-        className="btn btn-danger btn-sm"
-        onClick={() => suspendUser(item.answer.author._id)}
-      >
-        Suspend Author
-      </button>
-    )}
-  </div>
-) : (
-  <div className="info-banner">
-    {item.status === "DISMISSED" &&
-      "✅ Report dismissed. No moderation action was required."}
+                  {reportType === "answers" &&
+                    item.answer?._id &&
+                    !item.answer.isRemoved && (
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => removeAnswer(item.answer._id)}
+                      >
+                        Remove Answer
+                      </button>
+                    )}
 
-    {item.status === "REVIEWED" &&
-      "👀 Report reviewed by a moderator."}
+                  {reportedAuthor?._id &&
+                    (reportedAuthor.isSuspended ? (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => unsuspendUser(reportedAuthor._id)}
+                      >
+                        Unsuspend Author
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => suspendUser(reportedAuthor._id)}
+                      >
+                        Suspend Author
+                      </button>
+                    ))}
+                </div>
+              ) : (
+                <>
+                  {reportedAuthor?.isSuspended && (
+                    <div className="action-row">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => unsuspendUser(reportedAuthor._id)}
+                      >
+                        Unsuspend Author
+                      </button>
+                    </div>
+                  )}
+                  <div className="info-banner">
+                    {item.status === "DISMISSED" &&
+                      "Report dismissed. No moderation action was required."}
 
-    {item.status === "ACTION_TAKEN" &&
-      "🚫 Moderation action has been completed."}
-  </div>
-)}
+                    {item.status === "REVIEWED" &&
+                      "Report reviewed by a moderator."}
+
+                    {item.status === "ACTION_TAKEN" &&
+                      "Moderation action has been completed."}
+                  </div>
+                </>
+              )}
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
 

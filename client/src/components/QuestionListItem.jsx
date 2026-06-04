@@ -10,7 +10,9 @@ function QuestionListItem({ question, faqConfig }) {
   const status = getQuestionStatus(question, faqConfig);
   const preview = getAcceptedAnswerPreview(question);
   const answerCount = question.answerCount ?? 0;
+  const views = question.views ?? 0;
   const answerLabel = answerCount === 1 ? "Answer" : "Answers";
+  const viewsLabel = views === 1 ? "View" : "Views";
 
   return (
     <Link to={`/questions/${question._id}`} className="question-row card">
@@ -58,6 +60,13 @@ function QuestionListItem({ question, faqConfig }) {
           </span>
           <span className="stat-value">{answerCount}</span>
           <span className="stat-label">{answerLabel}</span>
+        </div>
+        <div className="stat-block">
+          <span className="stat-icon" aria-hidden="true">
+            👁
+          </span>
+          <span className="stat-value">{views}</span>
+          <span className="stat-label">{viewsLabel}</span>
         </div>
       </div>
     </Link>

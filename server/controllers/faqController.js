@@ -9,6 +9,10 @@ const {
   buildTextSearchFilter,
   paginatedResponse,
 } = require("../utils/queryHelpers");
+const {
+  buildVisibleQuestionFilter,
+  buildVisibleAnswerFilter,
+} = require("../utils/moderationVisibility");
 
 const getFaqs = async (req, res) => {
   try {
@@ -17,17 +21,19 @@ const getFaqs = async (req, res) => {
     const search = req.query.search || "";
     const { faqMinViews, faqMinAgeDays } = await getFaqSettings();
 
-    const filter = {
+    const filter = await buildVisibleQuestionFilter({
       ...getFaqEligibilityFilter({ minViews: faqMinViews, minAgeDays: faqMinAgeDays }),
       ...buildCategoryFilter(categories),
       ...buildTextSearchFilter(search),
-    };
+    });
+    const answerFilter = await buildVisibleAnswerFilter();
 
     let query = Question.find(filter)
       .populate("author", "name email")
       .populate({
         path: "acceptedAnswer",
         select: "content author createdAt upvotes",
+        match: answerFilter,
         populate: { path: "author", select: "name email" },
       })
       .sort(search ? { score: { $meta: "textScore" } } : { views: -1, upvotes: -1, createdAt: -1 });

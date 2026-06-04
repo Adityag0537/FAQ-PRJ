@@ -32,6 +32,7 @@ function QuestionDetailPage() {
   });
   const [editFiles, setEditFiles] = useState([]);
   const [reportAnswerId, setReportAnswerId] = useState(null);
+  const [reportQuestionOpen, setReportQuestionOpen] = useState(false);
   const [answerDraft, setAnswerDraft] = useState("");
   const [editQuestion, setEditQuestion] = useState(false);
   const [editAnswerId, setEditAnswerId] = useState(null);
@@ -378,6 +379,15 @@ function QuestionDetailPage() {
                     </button>
                   </>
                 )}
+                {user && !isOwner(question.author) && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setReportQuestionOpen(true)}
+                  >
+                    Report Question
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -449,6 +459,14 @@ function QuestionDetailPage() {
           <ReportAnswerModal
             answerId={reportAnswerId}
             onClose={() => setReportAnswerId(null)}
+          />
+        )}
+
+        {reportQuestionOpen && (
+          <ReportAnswerModal
+            contentType="question"
+            questionId={id}
+            onClose={() => setReportQuestionOpen(false)}
           />
         )}
 

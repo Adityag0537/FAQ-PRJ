@@ -6,6 +6,7 @@ const connectDB = require("../config/db");
 const User = require("../models/User");
 const Question = require("../models/Question");
 const Answer = require("../models/Answer");
+const { ADMIN_EMAIL, ADMIN_PASSWORD } = require("../config/adminCredentials");
 const faqSeedData = require("./faqSeedData");
 
 dotenv.config();
@@ -25,7 +26,7 @@ const seedDatabase = async ({ closeConnection = false } = {}) => {
     return;
   }
 
-  const passwordHash = await bcrypt.hash("seedpass123", 10);
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
 
   let seedUser = await User.findOne({ email: "seed@samagama.local" });
 
@@ -38,16 +39,16 @@ const seedDatabase = async ({ closeConnection = false } = {}) => {
     });
   }
 
-  let adminUser = await User.findOne({ email: "admin@samagama.local" });
+  let adminUser = await User.findOne({ email: ADMIN_EMAIL });
 
   if (!adminUser) {
     adminUser = await User.create({
       name: "Samagama Admin",
-      email: "admin@samagama.local",
+      email: ADMIN_EMAIL,
       passwordHash,
       role: "ADMIN",
     });
-    console.log("Admin user created: admin@samagama.local / seedpass123");
+    console.log(`Admin user created: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
   }
 
   const seedCreatedAt = new Date();

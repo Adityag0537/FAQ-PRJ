@@ -28,6 +28,11 @@ const {
   enrichQuestion,
 } = require("../utils/questionEnrichment");
 const { parseSort, fetchQuestionsSorted } = require("../utils/questionSort");
+const {
+  visibleAnswerFilter,
+  buildVisibleQuestionFilter,
+  buildVisibleAnswerFilter,
+} = require("../utils/moderationVisibility");
 
 const validateCategories = (categories) => {
   if (!Array.isArray(categories) || categories.length === 0) {
@@ -53,10 +58,10 @@ const getQuestions = async (req, res) => {
     const sort = parseSort(req.query.sort);
     const hasSearch = Boolean(search.trim());
 
-    const filter = {
+    const filter = await buildVisibleQuestionFilter({
       ...buildCategoryFilter(categories),
       ...buildTextSearchFilter(search),
-    };
+    });
 
     if (sort === "solved") {
       filter.acceptedAnswer = { $ne: null };
@@ -84,10 +89,13 @@ const getQuestions = async (req, res) => {
 
 const getQuestionById = async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id)
+    const question = await Question.findOne(
+      await buildVisibleQuestionFilter({ _id: req.params.id })
+    )
       .populate("author", "name email")
       .populate({
         path: "acceptedAnswer",
+        match: await buildVisibleAnswerFilter(),
         populate: { path: "author", select: "name email" },
       });
 
@@ -245,7 +253,10 @@ const updateQuestion = async (req, res) => {
 
     const populated = await Question.findById(question._id)
       .populate("author", "name email")
-      .populate("acceptedAnswer");
+      .populate({
+        path: "acceptedAnswer",
+        match: visibleAnswerFilter,
+      });
 
     res.status(200).json({
       success: true,
@@ -333,6 +344,7 @@ const upvoteQuestion = async (req, res) => {
       .populate("author", "name email")
       .populate({
         path: "acceptedAnswer",
+        match: visibleAnswerFilter,
         populate: { path: "author", select: "name email" },
       });
 
@@ -355,7 +367,9 @@ const acceptAnswer = async (req, res) => {
   try {
     const { questionId, answerId } = req.params;
 
-    const question = await Question.findById(questionId);
+    const question = await Question.findOne(
+      await buildVisibleQuestionFilter({ _id: questionId })
+    );
 
     if (!question) {
       return res.status(404).json({
@@ -374,7 +388,9 @@ const acceptAnswer = async (req, res) => {
       });
     }
 
-    const answer = await Answer.findById(answerId);
+    const answer = await Answer.findOne(await buildVisibleAnswerFilter({
+      _id: answerId,
+    }));
 
     if (!answer || answer.questionId.toString() !== questionId) {
       return res.status(404).json({
@@ -398,6 +414,7 @@ const acceptAnswer = async (req, res) => {
       .populate("author", "name email")
       .populate({
         path: "acceptedAnswer",
+        match: await buildVisibleAnswerFilter(),
         populate: { path: "author", select: "name email" },
       });
 
@@ -420,7 +437,9 @@ const unacceptAnswer = async (req, res) => {
   try {
     const { questionId } = req.params;
 
-    const question = await Question.findById(questionId);
+    const question = await Question.findOne(
+      await buildVisibleQuestionFilter({ _id: questionId })
+    );
 
     if (!question) {
       return res.status(404).json({
@@ -456,6 +475,7 @@ const unacceptAnswer = async (req, res) => {
       .populate("author", "name email")
       .populate({
         path: "acceptedAnswer",
+        match: await buildVisibleAnswerFilter(),
         populate: { path: "author", select: "name email" },
       });
 
@@ -486,9 +506,9 @@ const getSimilarQuestions = async (req, res) => {
       });
     }
 
-    const questions = await Question.find({
+    const questions = await Question.find(await buildVisibleQuestionFilter({
       $text: { $search: search.trim() },
-    })
+    }))
       .select({ score: { $meta: "textScore" }, title: 1, description: 1, categories: 1 })
       .sort({ score: { $meta: "textScore" } })
       .limit(5);

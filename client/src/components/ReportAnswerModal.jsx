@@ -1,9 +1,17 @@
 import { useState } from "react";
 import API from "../services/api";
-import { REPORT_REASONS } from "../constants/uploads";
+import { QUESTION_REPORT_REASONS, REPORT_REASONS } from "../constants/uploads";
 
-function ReportAnswerModal({ answerId, onClose, onSuccess }) {
-  const [reason, setReason] = useState(REPORT_REASONS[0]);
+function ReportAnswerModal({
+  answerId,
+  questionId,
+  contentType = "answer",
+  onClose,
+  onSuccess,
+}) {
+  const isQuestion = contentType === "question";
+  const reasons = isQuestion ? QUESTION_REPORT_REASONS : REPORT_REASONS;
+  const [reason, setReason] = useState(reasons[0]);
   const [additionalComments, setAdditionalComments] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -14,7 +22,11 @@ function ReportAnswerModal({ answerId, onClose, onSuccess }) {
     setSubmitting(true);
 
     try {
-      await API.post(`/answers/${answerId}/report`, {
+      const reportUrl = isQuestion
+        ? `/questions/${questionId}/report`
+        : `/answers/${answerId}/report`;
+
+      await API.post(reportUrl, {
         reason,
         additionalComments,
       });
@@ -30,9 +42,10 @@ function ReportAnswerModal({ answerId, onClose, onSuccess }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <h3>Report Answer</h3>
+        <h3>{isQuestion ? "Report Question" : "Report Answer"}</h3>
         <p className="field-hint">
-          Reported answers remain visible until reviewed by an admin.
+          Reported {isQuestion ? "questions" : "answers"} remain visible until
+          reviewed by an admin.
         </p>
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -41,7 +54,7 @@ function ReportAnswerModal({ answerId, onClose, onSuccess }) {
           <div className="field">
             <label className="field-label">Reason</label>
             <select value={reason} onChange={(e) => setReason(e.target.value)}>
-              {REPORT_REASONS.map((item) => (
+              {reasons.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>

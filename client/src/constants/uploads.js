@@ -8,3 +8,12 @@ export const REPORT_REASONS = [
   "Duplicate Answer",
   "Other",
 ];
+
+export const QUESTION_REPORT_REASONS = [
+  "Spam",
+  "Incorrect Information",
+  "Offensive Content",
+  "Misleading Question",
+  "Duplicate Question",
+  "Other",
+];

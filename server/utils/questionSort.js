@@ -1,5 +1,7 @@
 const Question = require("../models/Question");
-const Answer = require("../models/Answer");
+const {
+  buildVisibleAnswerFilter,
+} = require("./moderationVisibility");
 
 const VALID_SORTS = [
   "newest",
@@ -31,11 +33,12 @@ const buildSortOption = (sort, hasSearch) => {
   }
 };
 
-const populateQuestionQuery = (query) =>
+const populateQuestionQuery = (query, answerFilter) =>
   query
     .populate("author", "name email")
     .populate({
       path: "acceptedAnswer",
+      match: answerFilter,
       populate: { path: "author", select: "name email" },
     });
 
@@ -49,13 +52,21 @@ const reorderByIds = (documents, ids) => {
 };
 
 const fetchByAnswerCountSort = async (filter, sort, skip, limit) => {
+  const answerFilter = await buildVisibleAnswerFilter();
   const pipeline = [
     { $match: filter },
     {
       $lookup: {
         from: "answers",
-        localField: "_id",
-        foreignField: "questionId",
+        let: { questionId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$questionId", "$$questionId"] },
+              ...answerFilter,
+            },
+          },
+        ],
         as: "_answers",
       },
     },
@@ -89,7 +100,8 @@ const fetchByAnswerCountSort = async (filter, sort, skip, limit) => {
   }
 
   const populated = await populateQuestionQuery(
-    Question.find({ _id: { $in: ids } })
+    Question.find({ _id: { $in: ids } }),
+    answerFilter
   );
 
   const questions = await populated;
@@ -107,9 +119,11 @@ const fetchQuestionsSorted = async ({
     return fetchByAnswerCountSort(filter, sort, skip, limit);
   }
 
-  let query = populateQuestionQuery(Question.find(filter).sort(
-    buildSortOption(sort, hasSearch)
-  ));
+  const answerFilter = await buildVisibleAnswerFilter();
+  let query = populateQuestionQuery(
+    Question.find(filter).sort(buildSortOption(sort, hasSearch)),
+    answerFilter
+  );
 
   if (hasSearch) {
     query = query.select({ score: { $meta: "textScore" } });

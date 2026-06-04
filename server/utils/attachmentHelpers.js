@@ -39,11 +39,15 @@ const processUploadedFiles = async (files = []) => {
 const stripAttachmentsForList = (question) => {
   const obj = question.toObject ? question.toObject() : { ...question };
   const count = obj.attachments?.length || 0;
+  const acceptedAnswerContent = obj.acceptedAnswer
+    ? obj.acceptedAnswerContent
+    : "";
 
   delete obj.attachments;
 
   return {
     ...obj,
+    acceptedAnswerContent,
     attachmentCount: count,
   };
 };

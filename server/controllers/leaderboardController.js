@@ -4,6 +4,8 @@ const Question = require("../models/Question");
 const { getBadgeLevel } = require("../utils/badges");
 const { parsePagination, paginatedResponse } = require("../utils/queryHelpers");
 
+const visibleAnswerFilter = { isRemoved: { $ne: true } };
+
 const getLeaderboard = async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -40,6 +42,7 @@ const getLeaderboard = async (req, res) => {
         {
           $match: {
             "acceptedDoc.author": { $in: userIds },
+            "acceptedDoc.isRemoved": { $ne: true },
           },
         },
         {
@@ -50,7 +53,7 @@ const getLeaderboard = async (req, res) => {
         },
       ]),
       Answer.aggregate([
-        { $match: { author: { $in: userIds } } },
+        { $match: { author: { $in: userIds }, ...visibleAnswerFilter } },
         {
           $group: {
             _id: "$author",

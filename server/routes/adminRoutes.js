@@ -3,7 +3,9 @@ const auth = require("../middleware/auth");
 const { requireAdmin } = require("../middleware/authorize");
 const {
   getReportedAnswers,
+  getReportedQuestions,
   updateReportStatus,
+  updateQuestionReportStatus,
   adminRemoveAnswer,
   adminEditAnswer,
   adminEditQuestion,
@@ -26,6 +28,8 @@ router.get("/analytics", getAnalytics);
 router.get("/audit", getAuditTrail);
 router.get("/reports", getReportedAnswers);
 router.patch("/reports/:id", updateReportStatus);
+router.get("/question-reports", getReportedQuestions);
+router.patch("/question-reports/:id", updateQuestionReportStatus);
 router.delete("/answers/:id", adminRemoveAnswer);
 router.patch("/answers/:id", adminEditAnswer);
 router.patch("/questions/:id", adminEditQuestion);

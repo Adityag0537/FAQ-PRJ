@@ -3,12 +3,15 @@ const Answer = require("../models/Answer");
 const { attachVoteStatus, attachVoteStatusList } = require("../utils/voteHelpers");
 const { enrichQuestions } = require("../utils/questionEnrichment");
 
+const visibleAnswerFilter = { isRemoved: { $ne: true } };
+
 const getMyQuestions = async (req, res) => {
   try {
     const questions = await Question.find({ author: req.user._id })
       .populate("author", "name email")
       .populate({
         path: "acceptedAnswer",
+        match: visibleAnswerFilter,
         populate: { path: "author", select: "name email" },
       })
       .sort({ createdAt: -1 });
@@ -30,13 +33,17 @@ const getMyQuestions = async (req, res) => {
 
 const getMyAnswers = async (req, res) => {
   try {
-    const answers = await Answer.find({ author: req.user._id })
+    const answers = await Answer.find({
+      author: req.user._id,
+      ...visibleAnswerFilter,
+    })
       .populate("author", "name email")
       .populate({
         path: "questionId",
         populate: {
           path: "acceptedAnswer",
           select: "_id content",
+          match: visibleAnswerFilter,
         },
       })
       .sort({ createdAt: -1 });
